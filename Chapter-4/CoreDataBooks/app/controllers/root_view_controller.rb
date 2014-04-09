@@ -4,8 +4,11 @@ class RootViewController < UITableViewController
 
     # Set up the edit and add buttons
     self.navigationItem.leftBarButtonItem = self.editButtonItem;
+    self.navigationItem.rightBarButtonItem = UIBarButtonItem.alloc\
+                      .initWithBarButtonSystemItem(UIBarButtonSystemItemAdd,
+                                                   target:self,
+                                                   action:'addNewBook')
     # TODO: Add button
-    # TODO: Make navigation bar (and therefore button) visible
 
     error_ptr = Pointer.new(:object)
 
@@ -28,6 +31,10 @@ class RootViewController < UITableViewController
 
   def viewDidUnload
     @fetched_results_controller = nil
+  end
+
+  def addNewBook
+    # TODO: Show add book view controller
   end
 
   # UITableView delegate methods
