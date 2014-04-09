@@ -8,8 +8,6 @@ class RootViewController < UITableViewController
                       .initWithBarButtonSystemItem(UIBarButtonSystemItemAdd,
                                                    target:self,
                                                    action:'addNewBook')
-    # TODO: Add button
-
     error_ptr = Pointer.new(:object)
 
     if not self.fetchedResultsController.performFetch(error_ptr)
@@ -37,7 +35,7 @@ class RootViewController < UITableViewController
     # TODO: Show add book view controller
   end
 
-  # UITableView delegate methods
+  # UITableView data source methods
 
   def numberOfSectionsInTableView(tableView)
     self.fetchedResultsController.sections.count
@@ -51,27 +49,56 @@ class RootViewController < UITableViewController
     section_info.numberOfObjects
   end
 
-  def tableView(tableView, cellForRowAtIndexPath: indexPath)
-    cell = tableView.dequeueReusableCellWithIdentifier("CELL")
-
-    cell ||= UITableViewCell.alloc.initWithStyle(UITableViewCellStyleDefault,
-                                                 reuseIdentifier: "CELL")
-
+  def configureCell(cell, atIndexPath: indexPath)
     book = self.fetchedResultsController.objectAtIndexPath(indexPath)
 
     cell.textLabel.text = book.title
     cell
   end
 
+  def tableView(tableView, cellForRowAtIndexPath: indexPath)
+    cell = tableView.dequeueReusableCellWithIdentifier("CELL")
+
+    cell ||= UITableViewCell.alloc.initWithStyle(UITableViewCellStyleDefault,
+                                                 reuseIdentifier: "CELL")
+    self.configureCell(cell, atIndexPath: indexPath)
+
+    return cell
+  end
+
   def tableView(tableView, titleForHeaderInSection: section)
     self.fetchedResultsController.sections.objectAtIndex(section).name
   end
 
-  # TODO: commitEditingStyle
+  def tableView(tableView, commitEditingStyle:editingStyle, forRowAtIndexPath:indexPath)
+    if editingStyle == UITableViewCellEditingStyleDelete
+      cdq.contexts.current.deleteObject(self.fetchedResultsController.objectAtIndexPath(indexPath))
+      cdq.save
+    end
+  end
+
+  # Table view editing
+
+  def tableView(tableView, canMoveRowAtIndexPath:indexPath)
+    # No rows in the table are re-orderable
+    false
+  end
+
+  def setEditing(editing, animated: animated)
+    super
+
+    # If editing, remove the 'add' button
+    # If not editing, reinstate it
+    if editing
+      @rightBarButtonItem = self.navigationItem.rightBarButtonItem;
+      self.navigationItem.rightBarButtonItem = nil
+    else
+      self.navigationItem.rightBarButtonItem = @rightBarButtonItem
+      @rightBarButtonItem = nil;
+    end
+  end
 
   # Methods related to NSFetchedResultsController
-
-  protected
 
   def fetchedResultsController
     if not @fetched_results_controller.nil?
@@ -95,8 +122,54 @@ class RootViewController < UITableViewController
                                                                                         cacheName: "Root")
 
     # TODO: Implement delegate methods
-    # @fetched_results_controller.delegate = self
+    @fetched_results_controller.delegate = self
 
     @fetched_results_controller
+  end
+
+  # NSFetchedResultsController delegate methods to respond to additions, removals and so on.
+
+  def controllerWillChangeContent(controller)
+    self.tableView.beginUpdates
+  end
+
+  def controller(controller,
+                 didChangeObject:anObject,
+                 atIndexPath:indexPath,
+                 forChangeType:type,
+                 newIndexPath:newIndexPath)
+    case type
+    when NSFetchedResultsChangeInsert
+      self.tableView.insertRowsAtIndexPaths([newIndexPath],
+                                            withRowAnimation:UITableViewRowAnimationAutomatic)
+    when NSFetchedResultsChangeDelete
+      self.tableView.deleteRowsAtIndexPaths([indexPath],
+                                            withRowAnimation:UITableViewRowAnimationAutomatic)
+    when NSFetchedResultsChangeUpdate
+      self.configureCell(self.tableView.cellForRowAtIndexPath(indexPath), atIndexPath:indexPath)
+    when NSFetchedResultsChangeMove
+      self.tableView.deleteRowsAtIndexPaths([indexPath],
+                                            withRowAnimation:UITableViewRowAnimationAutomatic)
+      self.tableView.insertRowsAtIndexPaths([newIndexPath],
+                                            withRowAnimation:UITableViewRowAnimationAutomatic)
+    end
+  end
+
+  def controller(controller,
+                 didChangeSection:sectionInfo,
+                 atIndex:sectionIndex,
+                 forChangeType:type)
+    case type
+    when NSFetchedResultsChangeInsert
+      self.tableView.insertSections(NSIndexSet.indexSetWithIndex(sectionIndex),
+                                    withRowAnimation:UITableViewRowAnimationAutomatic)
+    when NSFetchedResultsChangeDelete
+      self.tableView.deleteSections(NSIndexSet.indexSetWithIndex(sectionIndex),
+                                    withRowAnimation:UITableViewRowAnimationAutomatic)
+    end
+  end
+
+  def controllerDidChangeContent(controller)
+    self.tableView.endUpdates
   end
 end
