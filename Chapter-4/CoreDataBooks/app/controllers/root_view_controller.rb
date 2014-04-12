@@ -32,8 +32,8 @@ class RootViewController < UITableViewController
   end
 
   def addNewBook
-    addView = DetailViewController.alloc.init
-    self.navigationController.pushViewController(addView, animated:true)
+    addVC = DetailViewController.alloc.init
+    self.navigationController.pushViewController(addVC, animated:true)
   end
 
   # UITableView data source methods
@@ -76,6 +76,19 @@ class RootViewController < UITableViewController
       cdq.contexts.current.deleteObject(self.fetchedResultsController.objectAtIndexPath(indexPath))
       cdq.save
     end
+  end
+
+  # Table view delegate
+
+  def tableView(tableView, didSelectRowAtIndexPath:indexPath)
+    selected_book = self.fetchedResultsController.objectAtIndexPath(indexPath)
+
+    detailVC = DetailViewController.alloc.init
+    detailVC.book = selected_book
+
+    self.navigationController.pushViewController(detailVC, animated:true)
+
+    tableView.deselectRowAtIndexPath(indexPath, animated: true)
   end
 
   # Table view editing

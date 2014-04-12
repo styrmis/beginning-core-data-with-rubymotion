@@ -1,10 +1,12 @@
 class DetailViewController < UITableViewController
   FormFields = [ 'Title', 'Author', 'Copyright' ]
 
+  attr_accessor :book
+
   def viewDidLoad
     super
 
-    if not self.respond_to? :book
+    if self.book.nil?
       @values = [ 'Title', 'Author', '' ]
     else
       @values = [ self.book.title,
