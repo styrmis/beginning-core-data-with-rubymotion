@@ -32,7 +32,8 @@ class RootViewController < UITableViewController
   end
 
   def addNewBook
-    # TODO: Show add book view controller
+    addView = DetailViewController.alloc.init
+    self.navigationController.pushViewController(addView, animated:true)
   end
 
   # UITableView data source methods
