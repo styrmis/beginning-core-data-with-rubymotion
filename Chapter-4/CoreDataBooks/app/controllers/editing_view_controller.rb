@@ -3,6 +3,9 @@ class EditingViewController < UIViewController
   attr_accessor :editedFieldKey
   attr_accessor :editedFieldName
 
+  attr_accessor :hasDeterminedWhetherEditingDate
+  attr_accessor :editingDate
+
   def viewDidLoad
     super
 
@@ -26,5 +29,42 @@ class EditingViewController < UIViewController
     @textField.text = self.editedObject.send(self.editedFieldKey)
 
     self.view.addSubview @textField
+
+    @datePicker = UIDatePicker.alloc.initWithFrame([[0, 64], [320, 216]])
+    @datePicker.datePickerMode = UIDatePickerModeDate
+
+    self.view.addSubview @datePicker
+  end
+
+  def viewWillAppear(animated)
+    if self.isEditingDate()
+      @textField.hidden = true
+      @datePicker.hidden = false
+    else
+      @textField.hidden = false
+      @datePicker.hidden = true
+    end
+  end
+
+  protected
+
+  def isEditingDate
+    if self.hasDeterminedWhetherEditingDate
+      return editingDate
+    end
+
+    entity = self.editedObject.entity
+    attribute = entity.attributesByName[self.editedFieldKey]
+    attributeClassName = attribute.attributeValueClassName
+
+    if attributeClassName == "NSDate"
+      self.editingDate = true
+    else
+      self.editingDate = false
+    end
+
+    self.hasDeterminedWhetherEditingDate = true
+
+    return self.editingDate
   end
 end
