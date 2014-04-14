@@ -6,9 +6,11 @@ class DetailViewController < UITableViewController
   def viewDidLoad
     super
 
-    if self.class == DetailViewController.class
-      self.navigationItem.rightBarButtonItem = self.editButtonItem;
+    if self.class == DetailViewController
+      self.navigationItem.rightBarButtonItem = self.editButtonItem
     end
+
+    self.tableView.allowsSelectionDuringEditing = true
 
     if self.book.nil?
       @values = [ 'Title', 'Author', '' ]
@@ -44,28 +46,43 @@ class DetailViewController < UITableViewController
 
   # UITableView delegate methods
 
-  def tableView(tableView, didSelectRowAtIndexPath:indexPath)
-    editingVC = EditingViewController.alloc.init
-
-    editingVC.editedObject = self.book
-
-    case indexPath.row
-    when 0
-      editingVC.editedFieldKey = "title"
-    when 1
-      editingVC.editedFieldKey = "author"
-    when 2
-      editingVC.editedFieldKey = "copyright"
+  # Catch taps before they are handled by didSelectRowAtIndexPath
+  # and if the table view is not in editing mode, do not process
+  # the selection.
+  def tableView(tableView, willSelectRowAtIndexPath:indexPath)
+    if self.isEditing
+      indexPath
+    else
+      nil
     end
+  end
 
-    # NOTE: The original CoreDataBooks example uses localised strings
-    #       for the field name (editedFieldName) but we just
-    #       capitalise the key (e.g. "author" becomes "Author" as that
-    #       is sufficient, unless we want to localise the app.
-    editingVC.editedFieldName = editingVC.editedFieldKey.capitalize
+  def tableView(tableView, didSelectRowAtIndexPath:indexPath)
+    # Only show the EditingViewController is the table view is in
+    # editing mode (the Edit button has been tapped).
+    if self.isEditing
+      editingVC = EditingViewController.alloc.init
 
-    self.navigationController.pushViewController(editingVC, animated: true)
+      editingVC.editedObject = self.book
 
-    tableView.deselectRowAtIndexPath(indexPath, animated: true)
+      case indexPath.row
+      when 0
+        editingVC.editedFieldKey = "title"
+      when 1
+        editingVC.editedFieldKey = "author"
+      when 2
+        editingVC.editedFieldKey = "copyright"
+      end
+
+      # NOTE: The original CoreDataBooks example uses localised strings
+      #       for the field name (editedFieldName) but we just
+      #       capitalise the key (e.g. "author" becomes "Author" as that
+      #       is sufficient, unless we want to localise the app.
+      editingVC.editedFieldName = editingVC.editedFieldKey.capitalize
+
+      self.navigationController.pushViewController(editingVC, animated: true)
+
+      tableView.deselectRowAtIndexPath(indexPath, animated: true)
+    end
   end
 end
