@@ -13,6 +13,19 @@ class EditingViewController < UIViewController
 
     self.title = self.editedFieldName
 
+    # Add our Save and Cancel buttons
+    @saveButton = UIBarButtonItem.alloc.initWithTitle("Save",
+                                                      style:UIBarButtonItemStylePlain,
+                                                      target:self,
+                                                      action:'save')
+    self.navigationItem.rightBarButtonItem = @saveButton
+
+    @cancelButton = UIBarButtonItem.alloc.initWithTitle("Cancel",
+                                                        style:UIBarButtonItemStylePlain,
+                                                        target:self,
+                                                        action:'cancel')
+    self.navigationItem.leftBarButtonItem = @cancelButton
+
     # This long list of assignments will give us a UITextField that looks like
     # the example. Not to worry, with RubyMotion there are lots of ways to
     # get around verbose presentation code such as Motion Layout and Teacup.
@@ -58,6 +71,24 @@ class EditingViewController < UIViewController
   end
 
   protected
+
+  def save
+    # TODO: Add in undo management
+
+    if self.editingDate
+      self.editedObject.setValue(@datePicker.date,
+                                 forKey:self.editedFieldKey)
+    else
+      self.editedObject.setValue(@textField.text,
+                                 forKey:self.editedFieldKey)
+    end
+
+    self.navigationController.popViewControllerAnimated(true)
+  end
+
+  def cancel
+    self.navigationController.popViewControllerAnimated(true)
+  end
 
   def isEditingDate
     if self.hasDeterminedWhetherEditingDate

@@ -15,10 +15,15 @@ class DetailViewController < UITableViewController
     if self.book.nil?
       @values = [ 'Title', 'Author', '' ]
     else
-      @values = [ self.book.title,
-                  self.book.author,
-                  self.book.copyright ]
+      # Load the values from the book object and update interface
+      self.updateInterface
     end
+  end
+
+  def viewWillAppear(animated)
+    super
+
+    self.updateInterface
   end
 
   # UITableView data source methods
@@ -96,5 +101,12 @@ class DetailViewController < UITableViewController
   # for deletion control.
   def tableView(tableView, shouldIndentWhileEditingRowAtIndexPath:indexPath)
     false
+  end
+
+  def updateInterface
+    @values = [ self.book.title,
+                self.book.author,
+                self.book.copyright ]
+    self.tableView.reloadData
   end
 end
