@@ -24,6 +24,13 @@ class DetailViewController < UITableViewController
     super
 
     self.updateInterface
+
+    # Every time the view appears we want to check whether the current
+    # values will result in a valid Book record.
+    # This works because in order to edit an attribute the user is taken
+    # to the separate editing view and returns to this view, thus ensuring
+    # that this will be called whenever the field values change.
+    self.updateRightBarButtonItemState
   end
 
   # Override setEditing so that we can manage the saving of the context
@@ -125,6 +132,12 @@ class DetailViewController < UITableViewController
                 self.book.author,
                 self.dateFormatter.stringFromDate(book.copyright) ]
     self.tableView.reloadData
+  end
+
+  def updateRightBarButtonItemState
+    # Conditionally enable the right bar button item
+    # it should only be enabled if the book is in a valid state for saving.
+    self.navigationItem.rightBarButtonItem.enabled = self.book.validateForUpdate(nil)
   end
 
   def dateFormatter
