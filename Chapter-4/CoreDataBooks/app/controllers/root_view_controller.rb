@@ -32,7 +32,25 @@ class RootViewController < UITableViewController
   end
 
   def addNewBook(sender)
-    addVC = DetailViewController.alloc.init
+    addVC = AddViewController.alloc.init
+
+    # We would like the AddViewController to notify us when it will return
+    # and whether the user opted to save or discard the new Book, so we
+    # register this controller instance as its delegate.
+    # Note that we are not using a standard protocol for this, we will
+    # be creating our own of the form `didFinishWithSave(saved)` where
+    # `saved` is a boolean value.
+    addVC.delegate = self
+
+    # Here we create a child context within which to create our new record
+    addingContext = cdq.contexts.new(NSMainQueueConcurrencyType)
+
+    newBook = NSEntityDescription\
+         .insertNewObjectForEntityForName("Book",
+                                          inManagedObjectContext:addingContext)
+    addVC.book = newBook
+    addVC.managedObjectContext = addingContext
+
     self.navigationController.pushViewController(addVC, animated:true)
   end
 
@@ -185,5 +203,31 @@ class RootViewController < UITableViewController
 
   def controllerDidChangeContent(controller)
     self.tableView.endUpdates
+  end
+
+  # AddViewController delegate
+
+  def addViewController(controller, didFinishWithSave:saved)
+    if saved
+      # The top-most context on the stack should be the
+      # context that we passed to the add view controller
+      # before
+      addContext = cdq.contexts.pop
+
+      error_ptr = Pointer.new(:object)
+
+      unless addContext.save(error_ptr)
+        raise "Error saving child context: #{error_ptr[0].description}"
+      end
+
+      # Rather than save the child context first we could have
+      # simply called cdq.save as this will iterate through
+      # all contexts from the top down, saving at each level.
+      # We have presented it in this way mostly to demonstrate
+      # the need for the separate saving of contexts in this order.
+      cdq.save
+    end
+
+    self.navigationController.popViewControllerAnimated(true)
   end
 end
