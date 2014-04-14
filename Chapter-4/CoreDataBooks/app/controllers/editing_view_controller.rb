@@ -25,7 +25,6 @@ class EditingViewController < UIViewController
     @textField.clearButtonMode = UITextFieldViewModeWhileEditing
     @textField.contentVerticalAlignment = UIControlContentVerticalAlignmentCenter
 
-
     self.view.addSubview @textField
 
     @datePicker = UIDatePicker.alloc.initWithFrame([[0, 64], [320, 216]])
@@ -37,7 +36,7 @@ class EditingViewController < UIViewController
   def viewWillAppear(animated)
     super
 
-    if self.isEditingDate()
+    if self.isEditingDate
       @textField.hidden = true
       @datePicker.hidden = false
 
