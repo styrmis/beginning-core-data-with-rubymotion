@@ -106,7 +106,16 @@ class DetailViewController < UITableViewController
   def updateInterface
     @values = [ self.book.title,
                 self.book.author,
-                self.book.copyright ]
+                self.dateFormatter.stringFromDate(book.copyright) ]
     self.tableView.reloadData
+  end
+
+  def dateFormatter
+    @dateFormatter ||= NSDateFormatter.alloc.init.tap {|df|
+      df.setDateStyle NSDateFormatterMediumStyle
+      df.setTimeStyle NSDateFormatterNoStyle
+    }
+
+    @dateFormatter
   end
 end
