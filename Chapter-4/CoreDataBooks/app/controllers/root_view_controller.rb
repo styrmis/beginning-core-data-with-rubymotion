@@ -7,7 +7,7 @@ class RootViewController < UITableViewController
     self.navigationItem.rightBarButtonItem = UIBarButtonItem.alloc\
                       .initWithBarButtonSystemItem(UIBarButtonSystemItemAdd,
                                                    target:self,
-                                                   action:'addNewBook')
+                                                   action:'addNewBook:')
     error_ptr = Pointer.new(:object)
 
     if not self.fetchedResultsController.performFetch(error_ptr)
@@ -31,7 +31,7 @@ class RootViewController < UITableViewController
     @fetched_results_controller = nil
   end
 
-  def addNewBook
+  def addNewBook(sender)
     addVC = DetailViewController.alloc.init
     self.navigationController.pushViewController(addVC, animated:true)
   end
@@ -45,7 +45,7 @@ class RootViewController < UITableViewController
   # To check how to write delegate/data source methods such as
   # this one, you can check them here:
   # http://www.rubymotion.com/developer-center/api/UITableViewDataSource.html
-  def tableView(tableView, numberOfRowsInSection: section)
+  def tableView(tableView, numberOfRowsInSection:section)
     section_info = self.fetchedResultsController.sections.objectAtIndex(section)
     section_info.numberOfObjects
   end
@@ -57,7 +57,7 @@ class RootViewController < UITableViewController
     cell
   end
 
-  def tableView(tableView, cellForRowAtIndexPath: indexPath)
+  def tableView(tableView, cellForRowAtIndexPath:indexPath)
     cell = tableView.dequeueReusableCellWithIdentifier("CELL")
 
     cell ||= UITableViewCell.alloc.initWithStyle(UITableViewCellStyleDefault,
@@ -67,7 +67,7 @@ class RootViewController < UITableViewController
     return cell
   end
 
-  def tableView(tableView, titleForHeaderInSection: section)
+  def tableView(tableView, titleForHeaderInSection:section)
     self.fetchedResultsController.sections.objectAtIndex(section).name
   end
 

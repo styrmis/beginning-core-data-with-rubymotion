@@ -19,14 +19,12 @@ class EditingViewController < UIViewController
     @textField = UITextField.alloc.initWithFrame([[20, 84], [280, 31]])
     @textField.borderStyle = UITextBorderStyleRoundedRect
     @textField.font = UIFont.systemFontOfSize(15)
-    @textField.placeholder = ""
     @textField.autocorrectionType = UITextAutocorrectionTypeNo
     @textField.keyboardType = UIKeyboardTypeDefault
     @textField.returnKeyType = UIReturnKeyDone
     @textField.clearButtonMode = UITextFieldViewModeWhileEditing
     @textField.contentVerticalAlignment = UIControlContentVerticalAlignmentCenter
 
-    @textField.text = self.editedObject.send(self.editedFieldKey)
 
     self.view.addSubview @textField
 
@@ -37,12 +35,26 @@ class EditingViewController < UIViewController
   end
 
   def viewWillAppear(animated)
+    super
+
     if self.isEditingDate()
       @textField.hidden = true
       @datePicker.hidden = false
+
+      date = self.editedObject.valueForKey(self.editedFieldKey)
+
+      if date.nil?
+        date = NSDate.date
+      end
+
+      @datePicker.date = date
     else
       @textField.hidden = false
       @datePicker.hidden = true
+
+      @textField.text = self.editedObject.send(self.editedFieldKey)
+      @textField.placeholder = self.title
+      @textField.becomeFirstResponder
     end
   end
 

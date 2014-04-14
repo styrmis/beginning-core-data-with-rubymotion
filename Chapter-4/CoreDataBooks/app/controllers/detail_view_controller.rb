@@ -6,6 +6,10 @@ class DetailViewController < UITableViewController
   def viewDidLoad
     super
 
+    if self.class == DetailViewController.class
+      self.navigationItem.rightBarButtonItem = self.editButtonItem;
+    end
+
     if self.book.nil?
       @values = [ 'Title', 'Author', '' ]
     else
@@ -21,11 +25,11 @@ class DetailViewController < UITableViewController
     1
   end
 
-  def tableView(tableView, numberOfRowsInSection: section)
+  def tableView(tableView, numberOfRowsInSection:section)
     3
   end
 
-  def tableView(tableView, cellForRowAtIndexPath: indexPath)
+  def tableView(tableView, cellForRowAtIndexPath:indexPath)
     cell = tableView.dequeueReusableCellWithIdentifier("CELL")
 
     cell ||= UITableViewCell.alloc.initWithStyle(UITableViewCellStyleValue2,
