@@ -26,6 +26,23 @@ class DetailViewController < UITableViewController
     self.updateInterface
   end
 
+  # Override setEditing so that we can manage the saving of the context
+  # when we finish editing, and later so that we can add in undo handling.
+  def setEditing(editing, animated:animated)
+    super
+
+    # Hide the back button when editing starts,
+    # show it again when editing finishes.
+    self.navigationItem.setHidesBackButton(editing, animated:animated)
+
+    # TODO: Add in undo management
+
+    if not editing
+      # We have finished editing, so we persist any changes to the database
+      cdq.save
+    end
+  end
+
   # UITableView data source methods
 
   def numberOfSectionsInTableView(tableView)
