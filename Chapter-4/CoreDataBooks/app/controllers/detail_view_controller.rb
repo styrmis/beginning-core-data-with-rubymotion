@@ -85,4 +85,16 @@ class DetailViewController < UITableViewController
       tableView.deselectRowAtIndexPath(indexPath, animated: true)
     end
   end
+
+  # Disable row deletion completely (we always want to show the same three
+  # options)
+  def tableView(tableView, editingStyleForRowAtIndexPath:indexPath)
+    UITableViewCellEditingStyleNone
+  end
+
+  # Disable indentation of table view when editing (usually done to make space
+  # for deletion control.
+  def tableView(tableView, shouldIndentWhileEditingRowAtIndexPath:indexPath)
+    false
+  end
 end
