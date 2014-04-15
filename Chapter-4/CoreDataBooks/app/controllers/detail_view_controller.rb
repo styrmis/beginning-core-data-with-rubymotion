@@ -177,10 +177,15 @@ class DetailViewController < UITableViewController
     cdq.contexts.current.undoManager = nil
   end
 
+  # In order for the default shake-to-undo functionality to work
+  # we need to provide the appropriate undo manager as
+  # `self.undoManager'.
   def undoManager
     cdq.contexts.current.undoManager
   end
 
+  # The undo manager will handle setting the values of the underlying
+  # object, we just need to reflect those changes in the user interface.
   def undoManagerDidUndo(notification)
     self.updateInterface
     self.updateRightBarButtonItemState
@@ -198,12 +203,16 @@ class DetailViewController < UITableViewController
     true
   end
 
+  # Whenever the view appears we become first responder so that we will
+  # receive shake events.
   def viewDidAppear(animated)
     super
 
     self.becomeFirstResponder
   end
 
+  # And then whenever the view will disappear we resign first responder
+  # so that other view controller can become first responder.
   def viewWillDisappear(animated)
     super
 
