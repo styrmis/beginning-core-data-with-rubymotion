@@ -42,9 +42,11 @@ class DetailViewController < UITableViewController
     # show it again when editing finishes.
     self.navigationItem.setHidesBackButton(editing, animated:animated)
 
-    # TODO: Add in undo management
+    if editing
+      self.setUpUndoManager
+    else
+      self.cleanUpUndoManager
 
-    if not editing
       # We have finished editing, so we persist any changes to the database
       cdq.save
     end
@@ -138,6 +140,74 @@ class DetailViewController < UITableViewController
     # Conditionally enable the right bar button item
     # it should only be enabled if the book is in a valid state for saving.
     self.navigationItem.rightBarButtonItem.enabled = self.book.validateForUpdate(nil)
+  end
+
+  # Undo management
+
+  def setUpUndoManager
+    if cdq.contexts.current.undoManager.nil?
+      anUndoManager = NSUndoManager.alloc.init
+      anUndoManager.setLevelsOfUndo 3
+
+      cdq.contexts.current.undoManager = anUndoManager
+    end
+
+    # Register as an observer of the book's context's undo manager
+    notification_center = NSNotificationCenter.defaultCenter
+
+    notification_center.addObserver(self,
+                                    selector:'undoManagerDidUndo:',
+                                    name:NSUndoManagerDidUndoChangeNotification,
+                                    object:cdq.contexts.current.undoManager)
+
+    notification_center.addObserver(self,
+                                    selector:'undoManagerDidRedo:',
+                                    name:NSUndoManagerDidRedoChangeNotification,
+                                    object:cdq.contexts.current.undoManager)
+  end
+
+  def cleanUpUndoManager
+    NSNotificationCenter.defaultCenter.removeObserver(self,
+                                                      name:NSUndoManagerDidUndoChangeNotification,
+                                                      object:cdq.contexts.current.undoManager)
+    NSNotificationCenter.defaultCenter.removeObserver(self,
+                                                      name:NSUndoManagerDidRedoChangeNotification,
+                                                      object:cdq.contexts.current.undoManager)
+
+    cdq.contexts.current.undoManager = nil
+  end
+
+  def undoManager
+    cdq.contexts.current.undoManager
+  end
+
+  def undoManagerDidUndo(notification)
+    self.updateInterface
+    self.updateRightBarButtonItemState
+  end
+
+  def undoManagerDidRedo(notification)
+    self.updateInterface
+    self.updateRightBarButtonItemState
+  end
+
+  # The view controller must be first responder in order to be able to receive
+  # shake events for undo. It should resign first responder status when it
+  # disappears.
+  def canBecomeFirstResponder
+    true
+  end
+
+  def viewDidAppear(animated)
+    super
+
+    self.becomeFirstResponder
+  end
+
+  def viewWillDisappear(animated)
+    super
+
+    self.resignFirstResponder
   end
 
   def dateFormatter

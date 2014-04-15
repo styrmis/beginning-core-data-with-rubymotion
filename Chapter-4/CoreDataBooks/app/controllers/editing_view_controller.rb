@@ -73,7 +73,9 @@ class EditingViewController < UIViewController
   protected
 
   def save
-    # TODO: Add in undo management
+    undoManager = cdq.contexts.current.undoManager
+
+    undoManager.setActionName self.editedFieldName
 
     if self.editingDate
       self.editedObject.setValue(@datePicker.date,
