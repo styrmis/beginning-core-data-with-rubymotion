@@ -4,7 +4,8 @@ class Task < NSManagedObject
       # A task has a description field, a numeric priority (where 5 will
       # signify 'no priority' and will otherwise be set between 1 and 4,
       # with 1 being the highest priority and 4 the lowest.
-      # A boolean field `completed` tracks whether it has been done or not.
+      # A boolean field `completed` tracks whether the task has been
+      # completed or not
       entity = NSEntityDescription.alloc.init
       entity.name = 'Task'
       entity.managedObjectClassName = 'Task'
