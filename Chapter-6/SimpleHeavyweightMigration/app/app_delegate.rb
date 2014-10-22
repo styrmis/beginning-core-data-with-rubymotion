@@ -66,91 +66,116 @@ class AppDelegate
         source_model = moms[mom_index_for_current_datastore]
       end
 
-      # 4. Working forwards one migration at a time, migrate from that version to the latest version.
+      data_migrations = {
+        "0003 migrate name data" => :migration_0003_migrate_name_data
+      }
+
+      # Working forwards one version at a time, migrate from that version to the next-latest version.
       moms.slice(mom_index_for_current_datastore + 1, moms.count - 1).each do |model_version|
         destination_model = model_version
         destination_model_version_name = destination_model.versionIdentifiers.allObjects.first
-        destination_model_version_identifier = destination_model_version_name.split(" ")[0]
 
         puts "[INFO] Examining model version '#{destination_model_version_name}'"
 
-        if not source_model.entityVersionHashesByName.isEqualToDictionary(destination_model.entityVersionHashesByName)
-          # The models have different version information, so we migrate
+        # The goal here is to get a mapping model for our migration, which will either be
+        # programmatically configured via a data migration or will be inferred automatically
+        # for a schema migration.
+        mapping_model = nil
 
-          # CHECK: Do we have a custom migration policy for this migration?
-          #        Take the version identiier for the destination model and check
-          #        whether a migration policy class exists for it.
-          mapping_model = nil
+        error_ptr = Pointer.new(:object)
 
-          if Object.const_defined?("Migration_#{destination_model_version_identifier}")
-            puts "[INFO] Migrating forwards to model version '#{destination_model_version_name}' (Custom)"
-            # TODO
-          else
-            puts "[INFO] Migrating forwards to model version '#{destination_model_version_name}' (Automatic/Inferred)"
+        if data_migrations.keys.include? destination_model_version_name
+          puts "[INFO] Migrating forwards to model version '#{destination_model_version_name}' (Custom)"
 
-            error_ptr = Pointer.new(:object)
+          mapping_model = self.send(data_migrations[destination_model_version_name])
+        else
+          puts "[INFO] Migrating forwards to model version '#{destination_model_version_name}' (Automatic/Inferred)"
 
-            # The migration policy does not exist, so we will perform an automatic migration,
-            # where Core Data will infer automatically how to bring the schema up to date.
-            mapping_model = NSMappingModel.inferredMappingModelForSourceModel(source_model,
-                                                                              destinationModel: destination_model,
-                                                                              error: error_ptr)
 
-            puts "[INFO] Inferred Mapping Model: #{mapping_model}"
+          # The migration policy does not exist, so we will perform an automatic migration,
+          # where Core Data will infer automatically how to bring the schema up to date.
+          mapping_model = NSMappingModel.inferredMappingModelForSourceModel(source_model,
+                                                                            destinationModel: destination_model,
+                                                                            error: error_ptr)
 
-            unless mapping_model
-              raise "[ERROR] Failed to infer mapping: #{error_ptr[0].description}"
-            end
-          end
+          puts "[INFO] Inferred Mapping Model: #{mapping_model}"
+        end
 
-          manager = NSMigrationManager.alloc.initWithSourceModel(source_model, destinationModel: destination_model)
+        unless mapping_model
+          raise "[ERROR] Failed to infer mapping: #{error_ptr[0] and error_ptr[0].description}"
+        end
 
-          destination_store_url = store_url.URLByAppendingPathExtension('tmp')
-          puts "[INFO] Migrating store at #{store_url} to destination store at #{destination_store_url}"
+        manager = NSMigrationManager.alloc.initWithSourceModel(source_model, destinationModel: destination_model)
 
-          file_manager = NSFileManager.defaultManager
+        destination_store_url = store_url.URLByAppendingPathExtension('tmp')
+        puts "[INFO] Migrating store at #{store_url} to destination store at #{destination_store_url}"
 
+        file_manager = NSFileManager.defaultManager
+
+        error_ptr = Pointer.new(:object)
+
+        # Remove the temporary destination store if it already exists from a previous migration.
+        # If the file exists, the copying process which occurs later will fail (it won't overwrite
+        # files).
+        if file_manager.fileExistsAtPath(destination_store_url.path)
           error_ptr = Pointer.new(:object)
+          file_manager.removeItemAtPath(destination_store_url.path, error: error_ptr)
+        end
 
-          # Remove the temporary destination store if it already exists from a previous migration.
-          # If the file exists, the copying process which occurs later will fail (it won't overwrite
-          # files).
-          if file_manager.fileExistsAtPath(destination_store_url.path)
-            error_ptr = Pointer.new(:object)
-            file_manager.removeItemAtPath(destination_store_url.path, error: error_ptr)
-          end
+        error_ptr = Pointer.new(:object)
 
-          error_ptr = Pointer.new(:object)
+        result = manager.migrateStoreFromURL(store_url,
+                                             type: NSSQLiteStoreType,
+                                             options: { NSSQLitePragmasOption: {"journal_mode" => "DELETE"} },
+                                             withMappingModel: mapping_model,
+                                             toDestinationURL: destination_store_url,
+                                             destinationType: NSSQLiteStoreType,
+                                             destinationOptions: nil,
+                                             error: error_ptr)
 
-          result = manager.migrateStoreFromURL(store_url,
-                                               type: NSSQLiteStoreType,
-                                               options: { NSSQLitePragmasOption: {"journal_mode" => "DELETE"} },
-                                               withMappingModel: mapping_model,
-                                               toDestinationURL: destination_store_url,
-                                               destinationType: NSSQLiteStoreType,
-                                               destinationOptions: nil,
-                                               error: error_ptr)
+        if result
+          # Migration complete, we can now move the new store in place of the original
 
-          if result
-            # Migration complete, we can now move the new store in place of the original
+          coordinator = NSPersistentStoreCoordinator.alloc.initWithManagedObjectModel(moms.last)
 
-            coordinator = NSPersistentStoreCoordinator.alloc.initWithManagedObjectModel(moms.last)
+          store = coordinator.addPersistentStoreWithType(NSSQLiteStoreType, configuration: nil, URL: destination_store_url, options: nil, error: error_ptr)
 
-            store = coordinator.addPersistentStoreWithType(NSSQLiteStoreType, configuration: nil, URL: destination_store_url, options: nil, error: error_ptr)
+          file_manager.removeItemAtPath(store_url.path, error: error_ptr)
 
-            file_manager.removeItemAtPath(store_url.path, error: error_ptr)
-
-            coordinator.migratePersistentStore(store, toURL:store_url, options:nil, withType:NSSQLiteStoreType, error:error_ptr)
-          else
-            raise "[ERROR] Failed to migrate store: #{error_ptr[0].description}"
-          end
+          coordinator.migratePersistentStore(store, toURL:store_url, options:nil, withType:NSSQLiteStoreType, error:error_ptr)
+        else
+          raise "[ERROR] Failed to migrate store: #{error_ptr[0].description}"
         end
 
         # On the next run through this loop (if there is one) we will migrate _from_
         # the version that we have just migrated _to_, and continue until there are
         # no more versions left; we are then at the latest version.
-        source_model = model_version
+        source_model = destination_model
       end
     end
+  end
+
+  private
+
+  def migration_0003_migrate_name_data
+    # The migration policy exists, so we will perform a custom migration and specify
+    # it as the custom migration policy handler.
+    mapping_model = NSMappingModel.alloc.init
+
+    entity_mapping = NSEntityMapping.alloc.init
+    entity_mapping.setName("PersonToPerson")
+    entity_mapping.setSourceEntityName("Person")
+
+    source_expression = NSExpression.expressionWithFormat("FETCH(FUNCTION($manager, \"fetchRequestForSourceEntityNamed:predicateString:\" , \"Person\", \"TRUEPREDICATE\"), $manager.sourceContext, NO)")
+
+    entity_mapping.setSourceExpression(source_expression)
+
+    entity_mapping.setDestinationEntityName("Person")
+    entity_mapping.setEntityMigrationPolicyClassName("Migration_0003")
+    entity_mapping.setMappingType(NSCustomEntityMappingType)
+
+    mapping_model.setEntityMappings([ entity_mapping ])
+
+    mapping_model
   end
 end
