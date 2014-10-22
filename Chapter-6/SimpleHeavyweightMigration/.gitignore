@@ -4,6 +4,7 @@ tags
 app/pixate_code.rb
 resources/*.nib
 resources/*.momd
+resources/*.xcdatamodeld*
 resources/*.storyboardc
 .DS_Store
 nbproject
