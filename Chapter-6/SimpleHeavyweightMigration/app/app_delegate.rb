@@ -8,10 +8,14 @@ class AppDelegate
   end
 
   def perform_migrations
+    # Load the latest model version, as found in the main app bundle
     model = NSManagedObjectModel.mergedModelFromBundles(nil)
     latest_model_version_string = model.versionIdentifiers.anyObject
     puts "[INFO] Latest model version is #{latest_model_version_string}"
 
+    # Core Data Query by default sets the filename of the data store based on
+    # the name of the app; we follow this convention so that our migration
+    # process can work transparently alongside CDQ's initialisation process.
     app_name = NSBundle.mainBundle.objectForInfoDictionaryKey("CFBundleExecutable")
     store_path = File.join(NSHomeDirectory(), 'Documents', "#{app_name}.sqlite")
     store_url = NSURL.fileURLWithPath(store_path)
@@ -21,7 +25,7 @@ class AppDelegate
     error_ptr = Pointer.new(:object)
 
     # Fetch the metadata for the current data store.
-    metadata = NSPersistentStoreCoordinator.metadataForPersistentStoreOfType(NSSQLiteStoreType, URL: store_url, error: error_ptr)
+    metadata = NSPersistentStoreCoordinator.metadataForPersistentStoreOfType(NSSQLiteStoreType, URL:store_url, error:error_ptr)
 
     # Check whether the metadata matches the current schema version or not.
     # Metadata will be nil if this is the first run of the app.
@@ -34,8 +38,8 @@ class AppDelegate
 
       # Fetch all managed object models
       # NOTE: Result will be properly ordered if a suitable naming convention has been used
-      #       e.g. 001, 002 etc. for the schema version identifier.
-      mom_paths = NSBundle.mainBundle.pathsForResourcesOfType(".mom", inDirectory: "#{app_name}.momd")
+      #       e.g. 0001, 0002 etc. for the schema version identifier.
+      mom_paths = NSBundle.mainBundle.pathsForResourcesOfType(".mom", inDirectory:"#{app_name}.momd")
 
       moms = []
 
@@ -45,9 +49,9 @@ class AppDelegate
 
       puts "[INFO] #{moms.count} managed object model(s) found"
 
-      # Find the managed object model for the current datastore
       mom_index_for_current_datastore = -1
 
+      # Find the managed object model for the current datastore
       moms.each_with_index do |mom, index|
         mom_version_identifier = mom.versionIdentifiers.allObjects.first
 
@@ -66,6 +70,8 @@ class AppDelegate
         source_model = moms[mom_index_for_current_datastore]
       end
 
+      # All data migrations will appear here in the form
+      # [ "000X schema description" => :migration_handler_method ]
       data_migrations = {
         "0003 migrate name data" => :migration_0003_migrate_name_data
       }
@@ -87,6 +93,11 @@ class AppDelegate
         if data_migrations.keys.include? destination_model_version_name
           puts "[INFO] Migrating forwards to model version '#{destination_model_version_name}' (Custom)"
 
+          # Take the name of the handler method for the current migration and
+          # 'send' it to this class, the app delegate. The send method will
+          # cause the handler to be invoked, which we expect to return a mapping
+          # model which should contain all the necessary information that Core
+          # Data needs in order to execute it.
           mapping_model = self.send(data_migrations[destination_model_version_name])
         else
           puts "[INFO] Migrating forwards to model version '#{destination_model_version_name}' (Automatic/Inferred)"
@@ -95,20 +106,17 @@ class AppDelegate
           # The migration policy does not exist, so we will perform an automatic migration,
           # where Core Data will infer automatically how to bring the schema up to date.
           mapping_model = NSMappingModel.inferredMappingModelForSourceModel(source_model,
-                                                                            destinationModel: destination_model,
-                                                                            error: error_ptr)
-
-          puts "[INFO] Inferred Mapping Model: #{mapping_model}"
+                                                                            destinationModel:destination_model,
+                                                                            error:error_ptr)
         end
 
         unless mapping_model
           raise "[ERROR] Failed to infer mapping: #{error_ptr[0] and error_ptr[0].description}"
         end
 
-        manager = NSMigrationManager.alloc.initWithSourceModel(source_model, destinationModel: destination_model)
+        manager = NSMigrationManager.alloc.initWithSourceModel(source_model, destinationModel:destination_model)
 
         destination_store_url = store_url.URLByAppendingPathExtension('tmp')
-        puts "[INFO] Migrating store at #{store_url} to destination store at #{destination_store_url}"
 
         file_manager = NSFileManager.defaultManager
 
@@ -119,28 +127,32 @@ class AppDelegate
         # files).
         if file_manager.fileExistsAtPath(destination_store_url.path)
           error_ptr = Pointer.new(:object)
-          file_manager.removeItemAtPath(destination_store_url.path, error: error_ptr)
+          file_manager.removeItemAtPath(destination_store_url.path, error:error_ptr)
         end
 
         error_ptr = Pointer.new(:object)
 
+        # Migrate the data store, passing in a mapping model which has either
+        # been automatically inferred (and is therefore equivalent to asking
+        # Core Data to handle the migration automatically), or has been created
+        # by a migration handler method which we have written.
         result = manager.migrateStoreFromURL(store_url,
-                                             type: NSSQLiteStoreType,
-                                             options: { NSSQLitePragmasOption: {"journal_mode" => "DELETE"} },
-                                             withMappingModel: mapping_model,
-                                             toDestinationURL: destination_store_url,
-                                             destinationType: NSSQLiteStoreType,
-                                             destinationOptions: nil,
-                                             error: error_ptr)
+                                             type:NSSQLiteStoreType,
+                                             options:nil,
+                                             withMappingModel:mapping_model,
+                                             toDestinationURL:destination_store_url,
+                                             destinationType:NSSQLiteStoreType,
+                                             destinationOptions:nil,
+                                             error:error_ptr)
 
         if result
           # Migration complete, we can now move the new store in place of the original
 
           coordinator = NSPersistentStoreCoordinator.alloc.initWithManagedObjectModel(moms.last)
 
-          store = coordinator.addPersistentStoreWithType(NSSQLiteStoreType, configuration: nil, URL: destination_store_url, options: nil, error: error_ptr)
+          store = coordinator.addPersistentStoreWithType(NSSQLiteStoreType, configuration:nil, URL:destination_store_url, options:nil, error:error_ptr)
 
-          file_manager.removeItemAtPath(store_url.path, error: error_ptr)
+          file_manager.removeItemAtPath(store_url.path, error:error_ptr)
 
           coordinator.migratePersistentStore(store, toURL:store_url, options:nil, withType:NSSQLiteStoreType, error:error_ptr)
         else
@@ -158,20 +170,37 @@ class AppDelegate
   private
 
   def migration_0003_migrate_name_data
-    # The migration policy exists, so we will perform a custom migration and specify
-    # it as the custom migration policy handler.
+    # We will create our own mapping model from scratch
     mapping_model = NSMappingModel.alloc.init
 
+    # Create an entity mapping which will map from the Person
+    # entity in the source datastore to the Person entity
+    # in the destination store, i.e. this is an operation
+    # to transform the Person entity.
     entity_mapping = NSEntityMapping.alloc.init
     entity_mapping.setName("PersonToPerson")
     entity_mapping.setSourceEntityName("Person")
+    entity_mapping.setDestinationEntityName("Person")
 
+    # The source expression should evaluate to a fetch request
+    # which returns all of the source records that should be
+    # migrated. In our case we wish to migrate all of them,
+    # but we could modify this to return only certain Person
+    # records based on whatever criteria we like.
     source_expression = NSExpression.expressionWithFormat("FETCH(FUNCTION($manager, \"fetchRequestForSourceEntityNamed:predicateString:\" , \"Person\", \"TRUEPREDICATE\"), $manager.sourceContext, NO)")
-
     entity_mapping.setSourceExpression(source_expression)
 
-    entity_mapping.setDestinationEntityName("Person")
+    # We do not perform the actual data transformation here in
+    # this migration method, instead we delegate this to a
+    # dedicated class which we will provide. Core Data will
+    # instantiate the class and delegate the task of
+    # creating all Person entities in the destination store
+    # to it.
     entity_mapping.setEntityMigrationPolicyClassName("Migration_0003")
+
+    # The custom entity mapping type is for a mapping which
+    # delegates the mapping procedure to a custom class, as
+    # specified above.
     entity_mapping.setMappingType(NSCustomEntityMappingType)
 
     mapping_model.setEntityMappings([ entity_mapping ])

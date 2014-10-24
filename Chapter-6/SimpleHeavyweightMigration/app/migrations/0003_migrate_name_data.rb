@@ -1,5 +1,5 @@
 class Migration_0003 < NSEntityMigrationPolicy
-  def beginEntityMapping(mapping, manager: manager, error: error)
+  def beginEntityMapping(mapping, manager:manager, error:error)
     puts "[INFO] Initialise custom migration"
 
     true
